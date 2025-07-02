@@ -1,0 +1,537 @@
+
+//@version=5
+indicator("Enhanced Forex Multi-Indicator Screener [10 Pairs]", "Forex Enhanced Screener", overlay = true)
+
+//==========================================
+// INPUT GROUPS
+//==========================================
+
+//Display Settings
+Size = input.string(size.large, 'Table Size', options = [size.auto, size.tiny, size.small, size.normal, size.large, size.huge], group = 'Display')
+Position = input.string(position.bottom_right, 'Table Position',
+ options = [position.top_left, position.top_center, position.top_right, position.middle_left, position.middle_center,
+ position.middle_right, position.bottom_left, position.bottom_center, position.bottom_right], group = 'Display')
+
+//Global Settings
+global_tf = input.timeframe('1', 'Default Timeframe (All Symbols)', group = 'Global Settings')
+use_individual_tf = input.bool(false, 'Use Individual Timeframes', group = 'Global Settings')
+
+//Symbol Configuration - 10 Pairs
+Show_Sym_1    = input.bool    (true    , ''                                 , inline = 'Symbol 1', group = 'Symbol 1' )
+Sym_1         = input.symbol  ('EURUSD', ''                                 , inline = 'Symbol 1', group = 'Symbol 1' )
+TF_Sym_1      = input.timeframe('1'     , 'Individual TF'                  , group = 'Symbol 1' )
+
+Show_Sym_2    = input.bool    (true    , ''                                 , inline = 'Symbol 2', group = 'Symbol 2' )
+Sym_2         = input.symbol  ('GBPUSD', ''                                 , inline = 'Symbol 2', group = 'Symbol 2' )
+TF_Sym_2      = input.timeframe('1'     , 'Individual TF'                  , group = 'Symbol 2' )
+
+Show_Sym_3    = input.bool    (true    , ''                                 , inline = 'Symbol 3', group = 'Symbol 3' )
+Sym_3         = input.symbol  ('USDJPY', ''                                 , inline = 'Symbol 3', group = 'Symbol 3' )
+TF_Sym_3      = input.timeframe('1'     , 'Individual TF'                  , group = 'Symbol 3' )
+
+Show_Sym_4    = input.bool    (true    , ''                                 , inline = 'Symbol 4', group = 'Symbol 4' )
+Sym_4         = input.symbol  ('USDCHF', ''                                 , inline = 'Symbol 4', group = 'Symbol 4' )
+TF_Sym_4      = input.timeframe('1'     , 'Individual TF'                  , group = 'Symbol 4' )
+
+Show_Sym_5    = input.bool    (true    , ''                                 , inline = 'Symbol 5', group = 'Symbol 5' )
+Sym_5         = input.symbol  ('AUDUSD', ''                                 , inline = 'Symbol 5', group = 'Symbol 5' )
+TF_Sym_5      = input.timeframe('1'     , 'Individual TF'                  , group = 'Symbol 5' )
+
+Show_Sym_6    = input.bool    (true    , ''                                 , inline = 'Symbol 6', group = 'Symbol 6' )
+Sym_6         = input.symbol  ('USDCAD', ''                                 , inline = 'Symbol 6', group = 'Symbol 6' )
+TF_Sym_6      = input.timeframe('1'     , 'Individual TF'                  , group = 'Symbol 6' )
+
+Show_Sym_7    = input.bool    (true    , ''                                 , inline = 'Symbol 7', group = 'Symbol 7' )
+Sym_7         = input.symbol  ('NZDUSD', ''                                 , inline = 'Symbol 7', group = 'Symbol 7' )
+TF_Sym_7      = input.timeframe('1'     , 'Individual TF'                  , group = 'Symbol 7' )
+
+Show_Sym_8    = input.bool    (true    , ''                                 , inline = 'Symbol 8', group = 'Symbol 8' )
+Sym_8         = input.symbol  ('EURJPY', ''                                 , inline = 'Symbol 8', group = 'Symbol 8' )
+TF_Sym_8      = input.timeframe('1'     , 'Individual TF'                  , group = 'Symbol 8' )
+
+Show_Sym_9    = input.bool    (true    , ''                                 , inline = 'Symbol 9', group = 'Symbol 9' )
+Sym_9         = input.symbol  ('GBPJPY', ''                                 , inline = 'Symbol 9', group = 'Symbol 9' )
+TF_Sym_9      = input.timeframe('1'     , 'Individual TF'                  , group = 'Symbol 9' )
+
+Show_Sym_10   = input.bool    (true    , ''                                 , inline = 'Symbol 10', group = 'Symbol 10' )
+Sym_10        = input.symbol  ('EURGBP', ''                                 , inline = 'Symbol 10', group = 'Symbol 10' )
+TF_Sym_10     = input.timeframe('1'     , 'Individual TF'                  , group = 'Symbol 10' )
+
+//Signal Settings
+signalThreshold = input.int(3, "Signal Threshold (Min. Conditions)", minval=1, maxval=5, group = 'Signal Settings')
+strongSignalThreshold = input.int(4, "Strong Signal Threshold (Min. Conditions)", minval=1, maxval=5, group = 'Signal Settings')
+
+//Binomo Signal Settings
+binomoSignalThreshold = input.int(3, "Binomo Signal Threshold", minval=1, maxval=6, group = 'Binomo Settings')
+binomoStrongThreshold = input.int(4, "Binomo Strong Signal Threshold", minval=1, maxval=6, group = 'Binomo Settings')
+
+//==========================================
+// TECHNICAL ANALYSIS FUNCTIONS
+//==========================================
+
+// Main analysis function
+analyzeSymbol() =>
+    // RSI Calculation
+    rsi_val = ta.rsi(close, 14)
+    
+    // Stochastic Calculation
+    stoch_val = ta.stoch(close, high, low, 14)
+    
+    // ATR Calculation
+    atr_val = ta.atr(21)
+    
+    // Bollinger Bands Calculation
+    [bb_middle, bb_upper, bb_lower] = ta.bb(close, 20, 2.0)
+    bb_position = (close - bb_lower) / (bb_upper - bb_lower) * 100
+    bb_status = close > bb_upper ? 'Above' : close < bb_lower ? 'Below' : 'Inside'
+    
+    // MACD Calculation
+    [macd_line, signal_line, histogram] = ta.macd(close, 12, 26, 9)
+    macd_signal = histogram >= 0 ? (histogram[1] < histogram ? 'Strong Bull' : 'Bullish') : (histogram[1] < histogram ? 'Weak Bear' : 'Bearish')
+    
+    // Enhanced Candle Pattern Recognition
+    candle_range = high - low
+    basic_candle = close > open ? 'Bull' : close == open ? 'Doji' : 'Bear'
+    
+    // Pin Bar patterns
+    pctCp = 0.66
+    bearish_pinbar = candle_range > 0 ? (open < high - (candle_range * pctCp) and close < high - (candle_range * pctCp)) : false
+    bullish_pinbar = candle_range > 0 ? (open > low + (candle_range * pctCp) and close > low + (candle_range * pctCp)) : false
+    
+    // Engulfing patterns
+    bearish_engulf = close[1] > open[1] and close < open and close <= low[1] and open >= close[1]
+    bullish_engulf = close[1] < open[1] and close > open and close >= high[1] and open <= close[1]
+    
+    // Dark Cloud Cover & Piercing Line
+    prev_range = high[1] - low[1]
+    dark_cloud = candle_range > 0 and prev_range > 0 ? (close[1] > open[1] and math.abs(close[1] - open[1]) / prev_range >= 0.7 and close < open and math.abs(close - open) / candle_range >= 0.7 and open >= close[1] and close > open[1] and close < ((open[1] + close[1]) / 2)) : false
+    piercing_line = candle_range > 0 and prev_range > 0 ? (close[1] < open[1] and math.abs(open[1] - close[1]) / prev_range >= 0.7 and close > open and math.abs(close - open) / candle_range >= 0.7 and open <= close[1] and close < open[1] and close > ((open[1] + close[1]) / 2)) : false
+    
+    // Determine candle pattern
+    candle_type = ''
+    if bearish_engulf
+        candle_type := 'Bear Engulf'
+    else if bullish_engulf
+        candle_type := 'Bull Engulf'
+    else if dark_cloud
+        candle_type := 'Dark Cloud'
+    else if piercing_line
+        candle_type := 'Piercing'
+    else if bearish_pinbar
+        candle_type := 'Bear Pin'
+    else if bullish_pinbar
+        candle_type := 'Bull Pin'
+    else
+        candle_type := basic_candle
+    
+    //==========================================
+    // BINOMO SIGNAL CALCULATION (6 CONDITIONS)
+    //==========================================
+    
+    // Supertrend for Binomo
+    Periods_st = 7
+    Multiplier_st = 2.5
+    atr_st = ta.atr(Periods_st)
+    up_st = (high + low) / 2 - (Multiplier_st * atr_st)
+    up1_st = nz(up_st[1], up_st)
+    up_st := close[1] > up1_st ? math.max(up_st, up1_st) : up_st
+    dn_st = (high + low) / 2 + (Multiplier_st * atr_st)
+    dn1_st = nz(dn_st[1], dn_st)
+    dn_st := close[1] < dn1_st ? math.min(dn_st, dn1_st) : dn_st
+    
+    trend_st = 1
+    trend_st := nz(trend_st[1], trend_st)
+    trend_st := trend_st == -1 and close > dn1_st ? 1 : trend_st == 1 and close < up1_st ? -1 : trend_st
+    
+    // UT Bot for Binomo
+    a_ut = 0.8
+    c_ut = 7
+    xATR_ut = ta.atr(c_ut)
+    nLoss_ut = a_ut * xATR_ut
+    xATRTrailingStop_ut = 0.0
+    xATRTrailingStop_ut := if close > nz(xATRTrailingStop_ut[1], 0) and close[1] > nz(xATRTrailingStop_ut[1], 0)
+        math.max(nz(xATRTrailingStop_ut[1]), close - nLoss_ut)
+    else
+        if close < nz(xATRTrailingStop_ut[1], 0) and close[1] < nz(xATRTrailingStop_ut[1], 0)
+            math.min(nz(xATRTrailingStop_ut[1]), close + nLoss_ut)
+        else
+            if close > nz(xATRTrailingStop_ut[1], 0)
+                close - nLoss_ut
+            else
+                close + nLoss_ut
+    
+    buy_ut = close > xATRTrailingStop_ut and ta.crossover(close, xATRTrailingStop_ut)
+    sell_ut = close < xATRTrailingStop_ut and ta.crossunder(close, xATRTrailingStop_ut)
+    
+    // Range Filter for Binomo
+    per_rf = 50
+    mult_rf = 2.0
+    avrng = ta.ema(math.abs(close - close[1]), per_rf)
+    smrng = ta.ema(avrng, per_rf * 2 - 1) * mult_rf
+    rngfilt = close
+    rngfilt := close > nz(rngfilt[1]) ? (close - smrng < nz(rngfilt[1]) ? nz(rngfilt[1]) : close - smrng) : (close + smrng > nz(rngfilt[1]) ? nz(rngfilt[1]) : close + smrng)
+    
+    longCondition = ta.crossover(close, rngfilt) or (close > rngfilt and close > close[1])
+    shortCondition = ta.crossunder(close, rngfilt) or (close < rngfilt and close < close[1])
+    
+    // RSI for Binomo
+    rsiValue_binomo = ta.rsi(close, 9)
+    rsiBuySignal = rsiValue_binomo < 25 and rsiValue_binomo > rsiValue_binomo[1]
+    rsiSellSignal = rsiValue_binomo > 75 and rsiValue_binomo < rsiValue_binomo[1]
+    
+    // MACD for Binomo
+    [macdLine_b, signalLine_b, histValue_b] = ta.macd(close, 8, 17, 9)
+    macdBuySignal = ta.crossover(macdLine_b, signalLine_b)
+    macdSellSignal = ta.crossunder(macdLine_b, signalLine_b)
+    
+    // Binomo signal calculation
+    binomoBuyConditions = 0
+    binomoSellConditions = 0
+    
+    binomoBuyConditions := binomoBuyConditions + (trend_st == 1 ? 1 : 0)
+    binomoBuyConditions := binomoBuyConditions + (buy_ut ? 1 : 0)
+    binomoBuyConditions := binomoBuyConditions + (longCondition ? 1 : 0)
+    binomoBuyConditions := binomoBuyConditions + (rsiBuySignal ? 1 : 0)
+    binomoBuyConditions := binomoBuyConditions + (macdBuySignal ? 1 : 0)
+    
+    binomoSellConditions := binomoSellConditions + (trend_st == -1 ? 1 : 0)
+    binomoSellConditions := binomoSellConditions + (sell_ut ? 1 : 0)
+    binomoSellConditions := binomoSellConditions + (shortCondition ? 1 : 0)
+    binomoSellConditions := binomoSellConditions + (rsiSellSignal ? 1 : 0)
+    binomoSellConditions := binomoSellConditions + (macdSellSignal ? 1 : 0)
+    
+    // Generate Binomo signal
+    binomo_signal = ''
+    if binomoBuyConditions >= binomoStrongThreshold
+        binomo_signal := 'GÜÇLÜ AL'
+    else if binomoSellConditions >= binomoStrongThreshold
+        binomo_signal := 'GÜÇLÜ SAT'
+    else if binomoBuyConditions >= binomoSignalThreshold
+        binomo_signal := 'AL'
+    else if binomoSellConditions >= binomoSignalThreshold
+        binomo_signal := 'SAT'
+    else
+        binomo_signal := 'NÖTR'
+    
+    //==========================================
+    // ORIGINAL SIGNAL CALCULATION (5 CONDITIONS)
+    //==========================================
+    
+    buyConditions = 0
+    sellConditions = 0
+    
+    // RSI Conditions
+    if rsi_val < 30
+        buyConditions += 1
+    if rsi_val > 70
+        sellConditions += 1
+    
+    // Stochastic Conditions
+    if stoch_val < 20
+        buyConditions += 1
+    if stoch_val > 80
+        sellConditions += 1
+    
+    // Bollinger Bands Conditions
+    if close < bb_lower
+        buyConditions += 1
+    if close > bb_upper
+        sellConditions += 1
+    
+    // MACD Conditions
+    if histogram > 0 and histogram > histogram[1]
+        buyConditions += 1
+    if histogram < 0 and histogram < histogram[1]
+        sellConditions += 1
+    
+    // Candle Pattern Conditions
+    if str.contains(candle_type, 'Bull') or candle_type == 'Piercing'
+        buyConditions += 1
+    if str.contains(candle_type, 'Bear') or candle_type == 'Dark Cloud'
+        sellConditions += 1
+    
+    // Generate Original Signal
+    original_signal = ''
+    if buyConditions >= strongSignalThreshold
+        original_signal := 'GÜÇLÜ AL'
+    else if sellConditions >= strongSignalThreshold
+        original_signal := 'GÜÇLÜ SAT'
+    else if buyConditions >= signalThreshold
+        original_signal := 'AL'
+    else if sellConditions >= signalThreshold
+        original_signal := 'SAT'
+    else
+        original_signal := 'NÖTR'
+    
+    // Return all calculated values
+    [candle_type, str.tostring(rsi_val, '#.##'), str.tostring(stoch_val, '#.##'), str.tostring(atr_val, format.mintick),
+     bb_status + '(' + str.tostring(bb_position, '#.#') + '%)', macd_signal + '(' + str.tostring(histogram, '#.####') + ')',
+     original_signal, binomo_signal]
+
+//==========================================
+// UTILITY FUNCTIONS
+//==========================================
+
+// Function to split symbol and exchange
+Split_Function(Tickerid) =>
+    Exchange = str.split(Tickerid, ':').get(0)
+    Symbol   = str.split(Tickerid, ':').get(1)
+    [Symbol, Exchange]
+
+// Timeframe display function
+TimeFrame(tf) =>
+    var string tfcalculator = ''
+    if tf == '1'
+        tfcalculator := '1m'
+    else if tf == '5'
+        tfcalculator := '5m'
+    else if tf == '15'
+        tfcalculator := '15m'
+    else if tf == '30'
+        tfcalculator := '30m'
+    else if tf == '60'
+        tfcalculator := '1H'
+    else if tf == '240'
+        tfcalculator := '4H'
+    else if tf == '1D'
+        tfcalculator := '1D'
+    else if tf == '1W'
+        tfcalculator := '1W'
+    else if tf == '1M'
+        tfcalculator := '1M'
+    else
+        tfcalculator := tf + 'm'
+    [tfcalculator]
+
+//==========================================
+// DATA COLLECTION - 10 SYMBOLS
+//==========================================
+
+// Determine timeframes
+actual_tf_1 = use_individual_tf ? TF_Sym_1 : global_tf
+actual_tf_2 = use_individual_tf ? TF_Sym_2 : global_tf
+actual_tf_3 = use_individual_tf ? TF_Sym_3 : global_tf
+actual_tf_4 = use_individual_tf ? TF_Sym_4 : global_tf
+actual_tf_5 = use_individual_tf ? TF_Sym_5 : global_tf
+actual_tf_6 = use_individual_tf ? TF_Sym_6 : global_tf
+actual_tf_7 = use_individual_tf ? TF_Sym_7 : global_tf
+actual_tf_8 = use_individual_tf ? TF_Sym_8 : global_tf
+actual_tf_9 = use_individual_tf ? TF_Sym_9 : global_tf
+actual_tf_10 = use_individual_tf ? TF_Sym_10 : global_tf
+
+// Get data for each symbol
+[Candle_Type_1, RSI_1, STC_1, ATR_1, BB_1, MACD_1, Signal_1, Binomo_1] = request.security(Sym_1, actual_tf_1, analyzeSymbol())
+[Candle_Type_2, RSI_2, STC_2, ATR_2, BB_2, MACD_2, Signal_2, Binomo_2] = request.security(Sym_2, actual_tf_2, analyzeSymbol())
+[Candle_Type_3, RSI_3, STC_3, ATR_3, BB_3, MACD_3, Signal_3, Binomo_3] = request.security(Sym_3, actual_tf_3, analyzeSymbol())
+[Candle_Type_4, RSI_4, STC_4, ATR_4, BB_4, MACD_4, Signal_4, Binomo_4] = request.security(Sym_4, actual_tf_4, analyzeSymbol())
+[Candle_Type_5, RSI_5, STC_5, ATR_5, BB_5, MACD_5, Signal_5, Binomo_5] = request.security(Sym_5, actual_tf_5, analyzeSymbol())
+[Candle_Type_6, RSI_6, STC_6, ATR_6, BB_6, MACD_6, Signal_6, Binomo_6] = request.security(Sym_6, actual_tf_6, analyzeSymbol())
+[Candle_Type_7, RSI_7, STC_7, ATR_7, BB_7, MACD_7, Signal_7, Binomo_7] = request.security(Sym_7, actual_tf_7, analyzeSymbol())
+[Candle_Type_8, RSI_8, STC_8, ATR_8, BB_8, MACD_8, Signal_8, Binomo_8] = request.security(Sym_8, actual_tf_8, analyzeSymbol())
+[Candle_Type_9, RSI_9, STC_9, ATR_9, BB_9, MACD_9, Signal_9, Binomo_9] = request.security(Sym_9, actual_tf_9, analyzeSymbol())
+[Candle_Type_10, RSI_10, STC_10, ATR_10, BB_10, MACD_10, Signal_10, Binomo_10] = request.security(Sym_10, actual_tf_10, analyzeSymbol())
+
+// Get timeframe strings
+[TF_1] = TimeFrame(actual_tf_1)
+[TF_2] = TimeFrame(actual_tf_2)
+[TF_3] = TimeFrame(actual_tf_3)
+[TF_4] = TimeFrame(actual_tf_4)
+[TF_5] = TimeFrame(actual_tf_5)
+[TF_6] = TimeFrame(actual_tf_6)
+[TF_7] = TimeFrame(actual_tf_7)
+[TF_8] = TimeFrame(actual_tf_8)
+[TF_9] = TimeFrame(actual_tf_9)
+[TF_10] = TimeFrame(actual_tf_10)
+
+// Get symbol names
+[Symbol_1, Exchange_1] = Split_Function(Sym_1)
+[Symbol_2, Exchange_2] = Split_Function(Sym_2)
+[Symbol_3, Exchange_3] = Split_Function(Sym_3)
+[Symbol_4, Exchange_4] = Split_Function(Sym_4)
+[Symbol_5, Exchange_5] = Split_Function(Sym_5)
+[Symbol_6, Exchange_6] = Split_Function(Sym_6)
+[Symbol_7, Exchange_7] = Split_Function(Sym_7)
+[Symbol_8, Exchange_8] = Split_Function(Sym_8)
+[Symbol_9, Exchange_9] = Split_Function(Sym_9)
+[Symbol_10, Exchange_10] = Split_Function(Sym_10)
+
+//==========================================
+// TABLE CREATION - EXPANDED FOR 10 SYMBOLS
+//==========================================
+
+var Screener_Table = table.new(Position, 11, 13, bgcolor = color.new(#0d1a3f, 80), border_color = #1c306d, border_width = 1, frame_color = #373a46, frame_width = 1)
+
+// Table header setup
+table.merge_cells(Screener_Table, 0, 0, 10, 0)
+table.merge_cells(Screener_Table, 0, 1, 0, 2)
+table.merge_cells(Screener_Table, 1, 1, 1, 2)
+table.merge_cells(Screener_Table, 2, 1, 2, 2)
+table.merge_cells(Screener_Table, 3, 1, 3, 2)
+table.merge_cells(Screener_Table, 4, 1, 4, 2)
+table.merge_cells(Screener_Table, 5, 1, 5, 2)
+table.merge_cells(Screener_Table, 6, 1, 6, 2)
+table.merge_cells(Screener_Table, 7, 1, 7, 2)
+table.merge_cells(Screener_Table, 8, 1, 8, 2)
+table.merge_cells(Screener_Table, 9, 1, 9, 2)
+table.merge_cells(Screener_Table, 10, 1, 10, 2)
+
+// Table headers
+table.cell(Screener_Table, 0, 0, '♦ Enhanced Forex Multi-Indicator Screener [10 Pairs] ♦', text_color = #56cfe0, text_size = Size)
+table.cell(Screener_Table, 0, 1, 'No', text_color = color.white, text_size = Size)
+table.cell(Screener_Table, 1, 1, 'Symbol', text_color = color.white, text_size = Size)
+table.cell(Screener_Table, 2, 1, 'TimeFrame', text_color = color.white, text_size = Size)
+table.cell(Screener_Table, 3, 1, 'Candle', text_color = color.white, text_size = Size)
+table.cell(Screener_Table, 4, 1, 'RSI', text_color = color.white, text_size = Size)
+table.cell(Screener_Table, 5, 1, 'Stochastic', text_color = color.white, text_size = Size)
+table.cell(Screener_Table, 6, 1, 'ATR', text_color = color.white, text_size = Size)
+table.cell(Screener_Table, 7, 1, 'Bollinger B.', text_color = color.white, text_size = Size)
+table.cell(Screener_Table, 8, 1, 'MACD', text_color = color.white, text_size = Size)
+table.cell(Screener_Table, 9, 1, 'Signal', text_color = color.white, text_size = Size)
+table.cell(Screener_Table, 10, 1, 'Binomo Signal', text_color = color.white, text_size = Size)
+
+//==========================================
+// TABLE DATA POPULATION - ALL 10 SYMBOLS
+//==========================================
+
+// Symbol 1 Data  
+if Show_Sym_1
+    table.cell(Screener_Table, 0, 3, '1', text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 1, 3, Symbol_1, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 2, 3, TF_1, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 3, 3, Candle_Type_1, text_color = str.contains(Candle_Type_1, 'Bull') or Candle_Type_1 == 'Piercing' ? color.green : str.contains(Candle_Type_1, 'Bear') or Candle_Type_1 == 'Dark Cloud' ? color.red : color.yellow, text_size = Size)
+    table.cell(Screener_Table, 4, 3, RSI_1, text_color = str.tonumber(RSI_1) > 70 ? color.red : str.tonumber(RSI_1) < 30 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 5, 3, STC_1, text_color = str.tonumber(STC_1) > 80 ? color.red : str.tonumber(STC_1) < 20 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 6, 3, ATR_1, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 7, 3, BB_1, text_color = str.contains(BB_1, 'Above') ? color.red : str.contains(BB_1, 'Below') ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 8, 3, MACD_1, text_color = str.contains(MACD_1, 'Bullish') ? color.green : str.contains(MACD_1, 'Bearish') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 9, 3, Signal_1, text_color = str.contains(Signal_1, 'GÜÇLÜ AL') ? color.green : str.contains(Signal_1, 'GÜÇLÜ SAT') ? color.red : str.contains(Signal_1, 'AL') ? color.green : str.contains(Signal_1, 'SAT') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 10, 3, Binomo_1, text_color = str.contains(Binomo_1, 'GÜÇLÜ AL') ? color.lime : str.contains(Binomo_1, 'GÜÇLÜ SAT') ? color.maroon : str.contains(Binomo_1, 'AL') ? color.lime : str.contains(Binomo_1, 'SAT') ? color.maroon : color.white, text_size = Size)
+
+// Symbol 2 Data
+if Show_Sym_2
+    table.cell(Screener_Table, 0, 4, '2', text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 1, 4, Symbol_2, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 2, 4, TF_2, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 3, 4, Candle_Type_2, text_color = str.contains(Candle_Type_2, 'Bull') or Candle_Type_2 == 'Piercing' ? color.green : str.contains(Candle_Type_2, 'Bear') or Candle_Type_2 == 'Dark Cloud' ? color.red : color.yellow, text_size = Size)
+    table.cell(Screener_Table, 4, 4, RSI_2, text_color = str.tonumber(RSI_2) > 70 ? color.red : str.tonumber(RSI_2) < 30 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 5, 4, STC_2, text_color = str.tonumber(STC_2) > 80 ? color.red : str.tonumber(STC_2) < 20 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 6, 4, ATR_2, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 7, 4, BB_2, text_color = str.contains(BB_2, 'Above') ? color.red : str.contains(BB_2, 'Below') ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 8, 4, MACD_2, text_color = str.contains(MACD_2, 'Bullish') ? color.green : str.contains(MACD_2, 'Bearish') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 9, 4, Signal_2, text_color = str.contains(Signal_2, 'GÜÇLÜ AL') ? color.green : str.contains(Signal_2, 'GÜÇLÜ SAT') ? color.red : str.contains(Signal_2, 'AL') ? color.green : str.contains(Signal_2, 'SAT') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 10, 4, Binomo_2, text_color = str.contains(Binomo_2, 'GÜÇLÜ AL') ? color.lime : str.contains(Binomo_2, 'GÜÇLÜ SAT') ? color.maroon : str.contains(Binomo_2, 'AL') ? color.lime : str.contains(Binomo_2, 'SAT') ? color.maroon : color.white, text_size = Size)
+
+// Symbol 3 Data
+if Show_Sym_3
+    table.cell(Screener_Table, 0, 5, '3', text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 1, 5, Symbol_3, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 2, 5, TF_3, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 3, 5, Candle_Type_3, text_color = str.contains(Candle_Type_3, 'Bull') or Candle_Type_3 == 'Piercing' ? color.green : str.contains(Candle_Type_3, 'Bear') or Candle_Type_3 == 'Dark Cloud' ? color.red : color.yellow, text_size = Size)
+    table.cell(Screener_Table, 4, 5, RSI_3, text_color = str.tonumber(RSI_3) > 70 ? color.red : str.tonumber(RSI_3) < 30 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 5, 5, STC_3, text_color = str.tonumber(STC_3) > 80 ? color.red : str.tonumber(STC_3) < 20 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 6, 5, ATR_3, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 7, 5, BB_3, text_color = str.contains(BB_3, 'Above') ? color.red : str.contains(BB_3, 'Below') ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 8, 5, MACD_3, text_color = str.contains(MACD_3, 'Bullish') ? color.green : str.contains(MACD_3, 'Bearish') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 9, 5, Signal_3, text_color = str.contains(Signal_3, 'GÜÇLÜ AL') ? color.green : str.contains(Signal_3, 'GÜÇLÜ SAT') ? color.red : str.contains(Signal_3, 'AL') ? color.green : str.contains(Signal_3, 'SAT') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 10, 5, Binomo_3, text_color = str.contains(Binomo_3, 'GÜÇLÜ AL') ? color.lime : str.contains(Binomo_3, 'GÜÇLÜ SAT') ? color.maroon : str.contains(Binomo_3, 'AL') ? color.lime : str.contains(Binomo_3, 'SAT') ? color.maroon : color.white, text_size = Size)
+
+// Symbol 4 Data
+if Show_Sym_4
+    table.cell(Screener_Table, 0, 6, '4', text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 1, 6, Symbol_4, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 2, 6, TF_4, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 3, 6, Candle_Type_4, text_color = str.contains(Candle_Type_4, 'Bull') or Candle_Type_4 == 'Piercing' ? color.green : str.contains(Candle_Type_4, 'Bear') or Candle_Type_4 == 'Dark Cloud' ? color.red : color.yellow, text_size = Size)
+    table.cell(Screener_Table, 4, 6, RSI_4, text_color = str.tonumber(RSI_4) > 70 ? color.red : str.tonumber(RSI_4) < 30 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 5, 6, STC_4, text_color = str.tonumber(STC_4) > 80 ? color.red : str.tonumber(STC_4) < 20 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 6, 6, ATR_4, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 7, 6, BB_4, text_color = str.contains(BB_4, 'Above') ? color.red : str.contains(BB_4, 'Below') ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 8, 6, MACD_4, text_color = str.contains(MACD_4, 'Bullish') ? color.green : str.contains(MACD_4, 'Bearish') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 9, 6, Signal_4, text_color = str.contains(Signal_4, 'GÜÇLÜ AL') ? color.green : str.contains(Signal_4, 'GÜÇLÜ SAT') ? color.red : str.contains(Signal_4, 'AL') ? color.green : str.contains(Signal_4, 'SAT') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 10, 6, Binomo_4, text_color = str.contains(Binomo_4, 'GÜÇLÜ AL') ? color.lime : str.contains(Binomo_4, 'GÜÇLÜ SAT') ? color.maroon : str.contains(Binomo_4, 'AL') ? color.lime : str.contains(Binomo_4, 'SAT') ? color.maroon : color.white, text_size = Size)
+
+// Symbol 5 Data
+if Show_Sym_5
+    table.cell(Screener_Table, 0, 7, '5', text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 1, 7, Symbol_5, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 2, 7, TF_5, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 3, 7, Candle_Type_5, text_color = str.contains(Candle_Type_5, 'Bull') or Candle_Type_5 == 'Piercing' ? color.green : str.contains(Candle_Type_5, 'Bear') or Candle_Type_5 == 'Dark Cloud' ? color.red : color.yellow, text_size = Size)
+    table.cell(Screener_Table, 4, 7, RSI_5, text_color = str.tonumber(RSI_5) > 70 ? color.red : str.tonumber(RSI_5) < 30 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 5, 7, STC_5, text_color = str.tonumber(STC_5) > 80 ? color.red : str.tonumber(STC_5) < 20 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 6, 7, ATR_5, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 7, 7, BB_5, text_color = str.contains(BB_5, 'Above') ? color.red : str.contains(BB_5, 'Below') ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 8, 7, MACD_5, text_color = str.contains(MACD_5, 'Bullish') ? color.green : str.contains(MACD_5, 'Bearish') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 9, 7, Signal_5, text_color = str.contains(Signal_5, 'GÜÇLÜ AL') ? color.green : str.contains(Signal_5, 'GÜÇLÜ SAT') ? color.red : str.contains(Signal_5, 'AL') ? color.green : str.contains(Signal_5, 'SAT') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 10, 7, Binomo_5, text_color = str.contains(Binomo_5, 'GÜÇLÜ AL') ? color.lime : str.contains(Binomo_5, 'GÜÇLÜ SAT') ? color.maroon : str.contains(Binomo_5, 'AL') ? color.lime : str.contains(Binomo_5, 'SAT') ? color.maroon : color.white, text_size = Size)
+
+// Symbol 6 Data
+if Show_Sym_6
+    table.cell(Screener_Table, 0, 8, '6', text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 1, 8, Symbol_6, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 2, 8, TF_6, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 3, 8, Candle_Type_6, text_color = str.contains(Candle_Type_6, 'Bull') or Candle_Type_6 == 'Piercing' ? color.green : str.contains(Candle_Type_6, 'Bear') or Candle_Type_6 == 'Dark Cloud' ? color.red : color.yellow, text_size = Size)
+    table.cell(Screener_Table, 4, 8, RSI_6, text_color = str.tonumber(RSI_6) > 70 ? color.red : str.tonumber(RSI_6) < 30 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 5, 8, STC_6, text_color = str.tonumber(STC_6) > 80 ? color.red : str.tonumber(STC_6) < 20 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 6, 8, ATR_6, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 7, 8, BB_6, text_color = str.contains(BB_6, 'Above') ? color.red : str.contains(BB_6, 'Below') ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 8, 8, MACD_6, text_color = str.contains(MACD_6, 'Bullish') ? color.green : str.contains(MACD_6, 'Bearish') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 9, 8, Signal_6, text_color = str.contains(Signal_6, 'GÜÇLÜ AL') ? color.green : str.contains(Signal_6, 'GÜÇLÜ SAT') ? color.red : str.contains(Signal_6, 'AL') ? color.green : str.contains(Signal_6, 'SAT') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 10, 8, Binomo_6, text_color = str.contains(Binomo_6, 'GÜÇLÜ AL') ? color.lime : str.contains(Binomo_6, 'GÜÇLÜ SAT') ? color.maroon : str.contains(Binomo_6, 'AL') ? color.lime : str.contains(Binomo_6, 'SAT') ? color.maroon : color.white, text_size = Size)
+
+// Symbol 7 Data
+if Show_Sym_7
+    table.cell(Screener_Table, 0, 9, '7', text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 1, 9, Symbol_7, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 2, 9, TF_7, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 3, 9, Candle_Type_7, text_color = str.contains(Candle_Type_7, 'Bull') or Candle_Type_7 == 'Piercing' ? color.green : str.contains(Candle_Type_7, 'Bear') or Candle_Type_7 == 'Dark Cloud' ? color.red : color.yellow, text_size = Size)
+    table.cell(Screener_Table, 4, 9, RSI_7, text_color = str.tonumber(RSI_7) > 70 ? color.red : str.tonumber(RSI_7) < 30 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 5, 9, STC_7, text_color = str.tonumber(STC_7) > 80 ? color.red : str.tonumber(STC_7) < 20 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 6, 9, ATR_7, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 7, 9, BB_7, text_color = str.contains(BB_7, 'Above') ? color.red : str.contains(BB_7, 'Below') ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 8, 9, MACD_7, text_color = str.contains(MACD_7, 'Bullish') ? color.green : str.contains(MACD_7, 'Bearish') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 9, 9, Signal_7, text_color = str.contains(Signal_7, 'GÜÇLÜ AL') ? color.green : str.contains(Signal_7, 'GÜÇLÜ SAT') ? color.red : str.contains(Signal_7, 'AL') ? color.green : str.contains(Signal_7, 'SAT') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 10, 9, Binomo_7, text_color = str.contains(Binomo_7, 'GÜÇLÜ AL') ? color.lime : str.contains(Binomo_7, 'GÜÇLÜ SAT') ? color.maroon : str.contains(Binomo_7, 'AL') ? color.lime : str.contains(Binomo_7, 'SAT') ? color.maroon : color.white, text_size = Size)
+
+// Symbol 8 Data
+if Show_Sym_8
+    table.cell(Screener_Table, 0, 10, '8', text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 1, 10, Symbol_8, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 2, 10, TF_8, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 3, 10, Candle_Type_8, text_color = str.contains(Candle_Type_8, 'Bull') or Candle_Type_8 == 'Piercing' ? color.green : str.contains(Candle_Type_8, 'Bear') or Candle_Type_8 == 'Dark Cloud' ? color.red : color.yellow, text_size = Size)
+    table.cell(Screener_Table, 4, 10, RSI_8, text_color = str.tonumber(RSI_8) > 70 ? color.red : str.tonumber(RSI_8) < 30 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 5, 10, STC_8, text_color = str.tonumber(STC_8) > 80 ? color.red : str.tonumber(STC_8) < 20 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 6, 10, ATR_8, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 7, 10, BB_8, text_color = str.contains(BB_8, 'Above') ? color.red : str.contains(BB_8, 'Below') ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 8, 10, MACD_8, text_color = str.contains(MACD_8, 'Bullish') ? color.green : str.contains(MACD_8, 'Bearish') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 9, 10, Signal_8, text_color = str.contains(Signal_8, 'GÜÇLÜ AL') ? color.green : str.contains(Signal_8, 'GÜÇLÜ SAT') ? color.red : str.contains(Signal_8, 'AL') ? color.green : str.contains(Signal_8, 'SAT') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 10, 10, Binomo_8, text_color = str.contains(Binomo_8, 'GÜÇLÜ AL') ? color.lime : str.contains(Binomo_8, 'GÜÇLÜ SAT') ? color.maroon : str.contains(Binomo_8, 'AL') ? color.lime : str.contains(Binomo_8, 'SAT') ? color.maroon : color.white, text_size = Size)
+
+// Symbol 9 Data
+if Show_Sym_9
+    table.cell(Screener_Table, 0, 11, '9', text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 1, 11, Symbol_9, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 2, 11, TF_9, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 3, 11, Candle_Type_9, text_color = str.contains(Candle_Type_9, 'Bull') or Candle_Type_9 == 'Piercing' ? color.green : str.contains(Candle_Type_9, 'Bear') or Candle_Type_9 == 'Dark Cloud' ? color.red : color.yellow, text_size = Size)
+    table.cell(Screener_Table, 4, 11, RSI_9, text_color = str.tonumber(RSI_9) > 70 ? color.red : str.tonumber(RSI_9) < 30 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 5, 11, STC_9, text_color = str.tonumber(STC_9) > 80 ? color.red : str.tonumber(STC_9) < 20 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 6, 11, ATR_9, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 7, 11, BB_9, text_color = str.contains(BB_9, 'Above') ? color.red : str.contains(BB_9, 'Below') ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 8, 11, MACD_9, text_color = str.contains(MACD_9, 'Bullish') ? color.green : str.contains(MACD_9, 'Bearish') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 9, 11, Signal_9, text_color = str.contains(Signal_9, 'GÜÇLÜ AL') ? color.green : str.contains(Signal_9, 'GÜÇLÜ SAT') ? color.red : str.contains(Signal_9, 'AL') ? color.green : str.contains(Signal_9, 'SAT') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 10, 11, Binomo_9, text_color = str.contains(Binomo_9, 'GÜÇLÜ AL') ? color.lime : str.contains(Binomo_9, 'GÜÇLÜ SAT') ? color.maroon : str.contains(Binomo_9, 'AL') ? color.lime : str.contains(Binomo_9, 'SAT') ? color.maroon : color.white, text_size = Size)
+
+// Symbol 10 Data
+if Show_Sym_10
+    table.cell(Screener_Table, 0, 12, '10', text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 1, 12, Symbol_10, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 2, 12, TF_10, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 3, 12, Candle_Type_10, text_color = str.contains(Candle_Type_10, 'Bull') or Candle_Type_10 == 'Piercing' ? color.green : str.contains(Candle_Type_10, 'Bear') or Candle_Type_10 == 'Dark Cloud' ? color.red : color.yellow, text_size = Size)
+    table.cell(Screener_Table, 4, 12, RSI_10, text_color = str.tonumber(RSI_10) > 70 ? color.red : str.tonumber(RSI_10) < 30 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 5, 12, STC_10, text_color = str.tonumber(STC_10) > 80 ? color.red : str.tonumber(STC_10) < 20 ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 6, 12, ATR_10, text_color = color.white, text_size = Size)
+    table.cell(Screener_Table, 7, 12, BB_10, text_color = str.contains(BB_10, 'Above') ? color.red : str.contains(BB_10, 'Below') ? color.green : color.white, text_size = Size)
+    table.cell(Screener_Table, 8, 12, MACD_10, text_color = str.contains(MACD_10, 'Bullish') ? color.green : str.contains(MACD_10, 'Bearish') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 9, 12, Signal_10, text_color = str.contains(Signal_10, 'GÜÇLÜ AL') ? color.green : str.contains(Signal_10, 'GÜÇLÜ SAT') ? color.red : str.contains(Signal_10, 'AL') ? color.green : str.contains(Signal_10, 'SAT') ? color.red : color.white, text_size = Size)
+    table.cell(Screener_Table, 10, 12, Binomo_10, text_color = str.contains(Binomo_10, 'GÜÇLÜ AL') ? color.lime : str.contains(Binomo_10, 'GÜÇLÜ SAT') ? color.maroon : str.contains(Binomo_10, 'AL') ? color.lime : str.contains(Binomo_10, 'SAT') ? color.maroon : color.white, text_size = Size)
+
+// Required plot for Pine Script
+plot(na, title="Invisible Plot", display=display.none)

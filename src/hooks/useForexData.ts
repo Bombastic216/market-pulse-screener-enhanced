@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { ForexPair, TechnicalData } from '@/types/forex';
 import { fetchForexRealTime, convertForexPairToAlphaVantage } from '@/services/alphaVantageApi';
@@ -15,6 +14,9 @@ export const useForexData = (
   const [isOnline, setIsOnline] = useState(true);
   const [apiCallCount, setApiCallCount] = useState(0);
   const { toast } = useToast();
+
+  // Gerçek veri çekecek çiftler - ilk 8 çift
+  const realDataPairs = ['EURUSD', 'AUDCAD', 'CHFJPY', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD'];
 
   const generateSimulatedData = (symbol: string): TechnicalData => {
     const rsi = Math.random() * 100;
@@ -114,8 +116,14 @@ export const useForexData = (
       
       for (const pair of enabledPairs) {
         try {
-          newData[pair.symbol] = await fetchRealTechnicalData(pair.symbol);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          // Gerçek veri çekecek çiftler için API çağrısı yap
+          if (realDataPairs.includes(pair.symbol)) {
+            newData[pair.symbol] = await fetchRealTechnicalData(pair.symbol);
+            await new Promise(resolve => setTimeout(resolve, 250)); // API rate limit için bekleme
+          } else {
+            // Diğerleri için simüle veri
+            newData[pair.symbol] = generateSimulatedData(pair.symbol);
+          }
         } catch (error) {
           console.error(`Error for ${pair.symbol}:`, error);
           newData[pair.symbol] = generateSimulatedData(pair.symbol);
@@ -154,7 +162,7 @@ export const useForexData = (
 
   useEffect(() => {
     refreshData();
-    const interval = setInterval(refreshData, 30000);
+    const interval = setInterval(refreshData, 30000); // 30 saniyede bir güncelle
     return () => clearInterval(interval);
   }, [pairs, signalThreshold, binomoThreshold]);
 

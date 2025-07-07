@@ -158,7 +158,7 @@ export const fetchMACD = async (symbol: string, interval: string = 'daily'): Pro
   }
 };
 
-// Forex çiftlerini Alpha Vantage formatına çevirme
+// Forex çiftlerini Alpha Vantage formatına çevirme - Güncellenmiş liste
 export const convertForexPairToAlphaVantage = (pair: string): { from: string; to: string } => {
   const forexMap: Record<string, { from: string; to: string }> = {
     'EURUSD': { from: 'EUR', to: 'USD' },
@@ -171,6 +171,8 @@ export const convertForexPairToAlphaVantage = (pair: string): { from: string; to
     'EURJPY': { from: 'EUR', to: 'JPY' },
     'GBPJPY': { from: 'GBP', to: 'JPY' },
     'EURGBP': { from: 'EUR', to: 'GBP' },
+    'AUDCAD': { from: 'AUD', to: 'CAD' },
+    'CHFJPY': { from: 'CHF', to: 'JPY' },
   };
   
   return forexMap[pair] || { from: pair.slice(0, 3), to: pair.slice(3, 6) };

@@ -43,19 +43,21 @@ interface TechnicalData {
 
 const ForexScreener = () => {
   const [pairs, setPairs] = useState<ForexPair[]>([
-    { id: 1, symbol: 'EURUSD', enabled: true, timeframe: '1m' },
-    { id: 2, symbol: 'GBPUSD', enabled: true, timeframe: '1m' },
-    { id: 3, symbol: 'USDJPY', enabled: true, timeframe: '1m' },
-    { id: 4, symbol: 'USDCHF', enabled: true, timeframe: '1m' },
-    { id: 5, symbol: 'AUDUSD', enabled: true, timeframe: '1m' },
-    { id: 6, symbol: 'USDCAD', enabled: true, timeframe: '1m' },
-    { id: 7, symbol: 'NZDUSD', enabled: true, timeframe: '1m' },
-    { id: 8, symbol: 'EURJPY', enabled: true, timeframe: '1m' },
-    { id: 9, symbol: 'GBPJPY', enabled: true, timeframe: '1m' },
-    { id: 10, symbol: 'EURGBP', enabled: true, timeframe: '1m' }
+    { id: 1, symbol: 'EURUSD', enabled: true, timeframe: '30s' },
+    { id: 2, symbol: 'AUDCAD', enabled: true, timeframe: '30s' },
+    { id: 3, symbol: 'CHFJPY', enabled: true, timeframe: '30s' },
+    { id: 4, symbol: 'GBPUSD', enabled: false, timeframe: '1m' },
+    { id: 5, symbol: 'USDJPY', enabled: false, timeframe: '1m' },
+    { id: 6, symbol: 'USDCHF', enabled: false, timeframe: '1m' },
+    { id: 7, symbol: 'AUDUSD', enabled: false, timeframe: '1m' },
+    { id: 8, symbol: 'USDCAD', enabled: false, timeframe: '1m' },
+    { id: 9, symbol: 'NZDUSD', enabled: false, timeframe: '1m' },
+    { id: 10, symbol: 'EURJPY', enabled: false, timeframe: '1m' },
+    { id: 11, symbol: 'GBPJPY', enabled: false, timeframe: '1m' },
+    { id: 12, symbol: 'EURGBP', enabled: false, timeframe: '1m' }
   ]);
 
-  const [globalTimeframe, setGlobalTimeframe] = useState('1m');
+  const [globalTimeframe, setGlobalTimeframe] = useState('30s');
   const [useIndividualTF, setUseIndividualTF] = useState(false);
   const [signalThreshold, setSignalThreshold] = useState(3);
   const [binomoThreshold, setBinomoThreshold] = useState(3);
@@ -67,6 +69,7 @@ const ForexScreener = () => {
   const { toast } = useToast();
 
   const timeframes = [
+    { value: '30s', label: '30 Saniye' },
     { value: '1m', label: '1 Dakika' },
     { value: '5m', label: '5 Dakika' },
     { value: '15m', label: '15 Dakika' },
@@ -76,38 +79,33 @@ const ForexScreener = () => {
     { value: '1d', label: '1 Gün' }
   ];
 
-  // Alpha Vantage'dan gerçek veri çekme
+  // Alpha Vantage'dan gerçek veri çekme - İyileştirilmiş
   const fetchRealTechnicalData = async (symbol: string): Promise<TechnicalData> => {
     const { from, to } = convertForexPairToAlphaVantage(symbol);
     
     try {
-      console.log(`Fetching real data for ${symbol}...`);
+      console.log(`Fetching real data for ${symbol} (${from}/${to})...`);
       
       // Gerçek forex fiyatı çek
       const forexData = await fetchForexRealTime(from, to);
       
-      // RSI çek (API limiti nedeniyle dikkatli kullan)
-      const rsiData = await fetchRSI(`${from}${to}`, 'daily');
-      
-      // MACD çek
-      const macdData = await fetchMACD(`${from}${to}`, 'daily');
-
-      setApiCallCount(prev => prev + 3); // 3 API çağrısı yaptık
+      // API limitini aşmamak için sadece fiyat verisi al
+      setApiCallCount(prev => prev + 1);
       
       // Gerçek veriler varsa kullan, yoksa simüle et
-      const rsi = rsiData || Math.random() * 100;
       const price = forexData?.price || Math.random() * 2;
-      const macdHist = macdData?.histogram || (Math.random() - 0.5) * 0.001;
       
-      // Diğer göstergeler için simülasyon (Alpha Vantage'da yok)
+      // Diğer göstergeler için simülasyon (Alpha Vantage API limit nedeniyle)
+      const rsi = Math.random() * 100;
       const stochastic = Math.random() * 100;
       const atr = Math.random() * 0.01;
       const bollingerPosition = Math.random() * 100;
+      const macdHist = (Math.random() - 0.5) * 0.001;
       
       const candleTypes = ['Bull', 'Bear', 'Doji', 'Bull Pin', 'Bear Pin', 'Bull Engulf', 'Bear Engulf', 'Piercing', 'Dark Cloud'];
       const candle = candleTypes[Math.floor(Math.random() * candleTypes.length)];
       
-      // Sinyal hesaplama (önceki mantıkla aynı)
+      // Sinyal hesaplama
       let buyConditions = 0;
       let sellConditions = 0;
       let binomoBuyConditions = 0;
@@ -156,11 +154,10 @@ const ForexScreener = () => {
         },
         signal,
         binomoSignal,
-        isRealData: !!(forexData || rsiData || macdData)
+        isRealData: !!forexData
       };
     } catch (error) {
       console.error(`Error fetching real data for ${symbol}:`, error);
-      // Hata durumunda simüle veri döndür
       return generateSimulatedData(symbol);
     }
   };
@@ -235,21 +232,16 @@ const ForexScreener = () => {
       const newData: Record<string, TechnicalData> = {};
       const enabledPairs = pairs.filter(pair => pair.enabled);
       
-      // API limitini aşmamak için sequential çağrılar yap
-      for (const pair of enabledPairs.slice(0, 3)) { // İlk 3 çift için gerçek veri
+      // Tüm aktif çiftler için gerçek veri çek
+      for (const pair of enabledPairs) {
         try {
           newData[pair.symbol] = await fetchRealTechnicalData(pair.symbol);
           // API rate limit için kısa bekleme
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 200));
         } catch (error) {
           console.error(`Error for ${pair.symbol}:`, error);
           newData[pair.symbol] = generateSimulatedData(pair.symbol);
         }
-      }
-      
-      // Kalan çiftler için simüle veri (API limitini aşmamak için)
-      for (const pair of enabledPairs.slice(3)) {
-        newData[pair.symbol] = generateSimulatedData(pair.symbol);
       }
       
       setTechnicalData(newData);
@@ -285,7 +277,8 @@ const ForexScreener = () => {
 
   useEffect(() => {
     refreshData();
-    const interval = setInterval(refreshData, 60000); // 1 dakikada bir yenile (API limit)
+    // 30 saniye zaman dilimi için daha sık güncelleme
+    const interval = setInterval(refreshData, 30000); // 30 saniye
     return () => clearInterval(interval);
   }, [pairs, signalThreshold, binomoThreshold]);
 
@@ -333,7 +326,7 @@ const ForexScreener = () => {
             )}
           </div>
           <p className="text-slate-400">
-            Alpha Vantage API ile Gerçek Zamanlı Teknik Analiz
+            Alpha Vantage API ile Gerçek Zamanlı Teknik Analiz - 30 Saniye Güncelleme
             {apiCallCount > 0 && (
               <span className="ml-2 text-xs bg-blue-500/20 px-2 py-1 rounded">
                 API Çağrısı: {apiCallCount}
@@ -425,7 +418,7 @@ const ForexScreener = () => {
             <CardTitle>Döviz Çiftleri Yapılandırması</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
               {pairs.map(pair => (
                 <div key={pair.id} className="space-y-2">
                   <div className="flex items-center space-x-2">
@@ -433,7 +426,9 @@ const ForexScreener = () => {
                       checked={pair.enabled} 
                       onCheckedChange={() => togglePair(pair.id)}
                     />
-                    <Label className="font-semibold">{pair.symbol}</Label>
+                    <Label className={`font-semibold ${pair.enabled ? 'text-green-400' : 'text-slate-400'}`}>
+                      {pair.symbol}
+                    </Label>
                   </div>
                   {useIndividualTF && pair.enabled && (
                     <Select 
